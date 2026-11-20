@@ -34,6 +34,10 @@ jobs:
     # 兼容误将 STOCK_LIST 配到同名 Environment variables 的场景；
     # 推荐位置仍是 Settings -> Secrets and variables -> Actions -> Repository variables。
     environment: STOCK_LIST
+    # id-token: write lets the job sign in to Google Cloud via Workload Identity Federation (keyless ADC)
+    permissions:
+      contents: read
+      id-token: write
     # 添加超时限制，防止任务卡死
     timeout-minutes: ${{ fromJSON(vars.ANALYSIS_TIMEOUT_MINUTES || '30') }}
     
@@ -56,6 +60,18 @@ jobs:
           pip install -r requirements.txt
           python -c "import futu; print('✅ futu SDK import OK')"
       
+      - name: Google Cloud ADC (Workload Identity Federation)
+        if: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER != '' }}
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Install google-auth for Vertex AI
+        if: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER != '' }}
+        run: pip install google-auth
+
       - name: 创建必要目录
         run: |
           mkdir -p data logs reports
